@@ -1,0 +1,43 @@
+# ---------------------------------------------------------------
+# Configuración del bot. Editá esto, no el código.
+# ---------------------------------------------------------------
+
+# Modo de operación:
+#   paper_local  -> simulación 100% local (no necesita cuenta ni claves)
+#   alpaca_paper -> cuenta de práctica de Alpaca (dinero ficticio, precios reales)
+#   alpaca_live  -> DINERO REAL. Además exige la variable de entorno BOT_LIVE_CONFIRM=SI
+mode: paper_local
+
+# Cartera objetivo (los pesos tienen que sumar 1.0)
+portfolio:
+  VT: 0.60    # acciones de todo el mundo
+  QQQ: 0.15   # tecnológicas de EE. UU.
+  IEF: 0.25   # bonos del Tesoro de EE. UU. a 7-10 años (amortiguador)
+
+# Activo "refugio" que usa el filtro de tendencia cuando un activo cae
+defensive_asset: BIL   # letras del Tesoro de EE. UU. a 1-3 meses (casi efectivo)
+
+strategy:
+  # true = si un activo está por debajo de su media de N días, su peso pasa al refugio
+  trend_filter: true
+  sma_days: 200
+  # Solo vende para rebalancear si algún activo se desvía más de esto del objetivo
+  # (si no, rebalancea solo dirigiendo los aportes nuevos a lo que está por debajo).
+  rebalance_threshold: 0.10
+
+contribution:
+  monthly_usd: 150     # lo que pensás depositar por mes
+  day_of_month: 1      # el bot invierte el efectivo disponible a partir de este día
+
+risk:
+  max_order_usd: 500           # ninguna orden individual supera esto
+  max_orders_per_run: 10
+  min_order_usd: 5             # no manda órdenes más chicas que esto (evita comisiones absurdas)
+  max_daily_loss_pct: 0.05     # si la cartera cae más de 5% desde ayer, no opera ese día
+  kill_switch_file: STOP       # si existe un archivo con este nombre, el bot no hace nada
+
+backtest:
+  start: "2007-01-01"
+  initial_usd: 0
+  commission_usd: 0.0          # Alpaca: 0. Interactive Brokers: ~0.35-1 USD por orden
+  slippage_pct: 0.0005
