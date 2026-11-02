@@ -1,4 +1,11 @@
-# Bot de inversión periódica
+# Bots de inversión
+
+Este repo tiene dos bots:
+
+- **Inversión periódica** (este documento): invierte de 100 a 200 USD por mes en ETFs, a largo plazo.
+- **Trading diario en cripto**: ver [DAYTRADE.md](DAYTRADE.md).
+
+## Bot de inversión periódica
 
 Bot que invierte por vos todos los meses (de 100 a 200 USD) en una cartera diversificada de ETFs,
 la mantiene equilibrada y, si querés, se protege de las caídas grandes con un filtro de tendencia.

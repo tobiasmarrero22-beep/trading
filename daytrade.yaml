@@ -1,0 +1,42 @@
+# ---------------------------------------------------------------
+# Bot de trading diario (cripto, solo compras al contado: sin apalancamiento)
+# ---------------------------------------------------------------
+
+# Modo:
+#   paper_local     -> simulación local con precios reales de Binance (sin cuenta ni claves)
+#   binance_testnet -> testnet de Binance (plata ficticia, claves de testnet.binance.vision)
+#   binance_live    -> DINERO REAL. Exige además la variable de entorno DAYTRADE_LIVE_CONFIRM=SI
+mode: paper_local
+
+symbol: BTC/USDT
+timeframe: 15m           # velas de 15 minutos
+initial_usd: 200         # solo para paper_local y backtest
+
+# Estrategia: "reversion" (comprar caídas dentro de una tendencia alcista)
+#             "breakout"  (comprar cuando rompe el máximo reciente)
+strategy: reversion
+params:
+  ema_trend: 200         # solo opera si el precio está por encima de esta media
+  rsi_period: 14
+  rsi_entry: 30          # reversion: compra si el RSI baja de esto
+  rsi_exit: 55           # reversion: vende si el RSI sube de esto
+  breakout_bars: 20      # breakout: compra si supera el máximo de las últimas N velas
+  atr_period: 14
+  stop_atr: 1.5          # stop-loss = entrada - 1,5 × ATR
+  take_profit_atr: 2.5   # toma de ganancia = entrada + 2,5 × ATR
+  max_hold_bars: 32      # vende sí o sí después de N velas (32 × 15 min = 8 h)
+
+risk:
+  risk_per_trade_pct: 0.01     # en cada operación se arriesga como máximo el 1 % de la cuenta
+  max_position_pct: 1.0        # tamaño máximo de la posición (1.0 = toda la cuenta, nunca más)
+  daily_loss_limit_pct: 0.03   # si hoy perdiste un 3 %, no abre más operaciones hasta mañana (UTC)
+  daily_profit_target_usd: null  # ej. 9: al llegar a esa ganancia en el día, deja de operar hasta mañana
+  max_trades_per_day: 6
+  min_notional_usd: 10         # Binance no acepta órdenes muy chicas
+  kill_switch_file: STOP
+
+costs:
+  fee_pct: 0.001         # 0,1 % por operación (tarifa estándar de Binance al contado)
+  slippage_pct: 0.0005
+
+poll_seconds: 30         # cada cuánto revisa el precio en modo en vivo
