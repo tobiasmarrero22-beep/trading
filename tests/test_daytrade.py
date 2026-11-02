@@ -119,3 +119,46 @@ def test_live_needs_confirmation(cfg, monkeypatch):
     monkeypatch.delenv("DAYTRADE_LIVE_CONFIRM", raising=False)
     with pytest.raises(RuntimeError):
         check_live_allowed(dict(cfg, mode="binance_live"))
+
+
+def test_momentum_signal_on_cross(cfg):
+    from daytrade.strategies import add_indicators, entry_signal
+    p = dict(cfg["params"], ema_trend=5, ema_fast=3, ema_slow=8)
+    close = [100 - i for i in range(40)] + [60 + 3 * i for i in range(40)]
+    idx = pd.date_range("2025-01-01", periods=len(close), freq="1h", tz="UTC")
+    df = pd.DataFrame({"open": close, "high": [c + 1 for c in close], "low": [c - 1 for c in close],
+                       "close": close, "volume": 1.0}, index=idx)
+    ind = add_indicators(df, p)
+    assert ind.cross_up.sum() == 1                        # un solo cruce al alza
+    assert not entry_signal(ind.iloc[-1], "momentum", p)  # después del cruce ya no hay señal nueva
+
+
+def test_out_of_sample_start(cfg):
+    df = bt.synthetic_candles(60)
+    split = df.index[len(df) // 2]
+    r = bt.run(df, dict(cfg, strategy="breakout"), start_at=split)
+    assert r.equity.index[0] == split
+    if len(r.trades):
+        assert (r.trades.entrada >= split).all()
+
+
+def test_resample_and_research_smoke(cfg):
+    from daytrade import research as rs
+    h1 = bt.synthetic_candles(90, tf_minutes=60)
+    h4 = rs.resample(h1, "4h")
+    assert len(h4) == pytest.approx(len(h1) / 4, abs=1)
+    assert h4.high.iloc[0] == h1.high.iloc[:4].max()
+    res = rs.research(cfg, {("X/USDT", "4h"): h4})
+    assert len(res) == sum(1 for _ in rs.combos())
+    assert "candidata" in res.columns
+    assert rs.verdict(res)
+
+
+def test_analyze_reads_trend(cfg):
+    from daytrade.analysis import analyze
+    up = _candles(400, trend=1.0)
+    r = analyze(up, "breakout", cfg["params"])
+    assert r["tendencia"] == "ALCISTA" and "clara" in r["fuerza"]
+    down = _candles(400, trend=-0.2)
+    r = analyze(down, "reversion", cfg["params"])
+    assert r["tendencia"] == "BAJISTA" and r["operaria_ahora"] == "NO" and "por debajo" in r["por_que"]

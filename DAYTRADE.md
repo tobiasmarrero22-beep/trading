@@ -55,6 +55,31 @@ Podés cambiar los parámetros de `daytrade.yaml` y repetir el backtest. Cuidado
 parámetros que el pasado da perfecto, casi seguro va a fallar en el futuro. Una forma de comprobarlo es
 afinar con `--days 365` y después mirar si sigue funcionando en otro período.
 
+## Ver qué lee el bot en el mercado ahora
+
+```bash
+python daytrade.py analizar
+```
+
+Para BTC, ETH y SOL, en velas de 1 y 4 horas, muestra:
+
+- **tendencia**: alcista, bajista o indefinida;
+- **fuerza**: si va con dirección clara o de lado;
+- **RSI**: sobrecomprado, sobrevendido o neutral;
+- **volatilidad**: comparada con la habitual;
+- si el bot **operaría ahora** o no, y por qué.
+
+## Buscar variantes con validación honesta
+
+```bash
+python daytrade.py research
+```
+
+Prueba 3 monedas × 2 marcos de tiempo (1 h y 4 h) × 3 estrategias (reversion, breakout, momentum) con
+distintos parámetros: 768 combinaciones, unos 5 a 10 minutos. Elige con los primeros 2 años y
+**comprueba con el último año**, que no se usó para elegir. Solo marca como "candidata" lo que gana en
+los dos períodos. El detalle completo queda en `research_resultados.csv`.
+
 ## Paso 2: práctica con precios reales (sin cuenta)
 
 `mode: paper_local` (viene así por defecto). Usa los precios reales de Binance y simula las órdenes

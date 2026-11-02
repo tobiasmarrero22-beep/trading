@@ -6,6 +6,8 @@
     python daytrade.py run --once                # una sola pasada (para cron)
     python daytrade.py report                    # ganancias y pérdidas por día, según el registro
     python daytrade.py check                     # prueba la conexión y los permisos de la clave
+    python daytrade.py analizar                  # qué ve el bot en el mercado ahora y si operaría
+    python daytrade.py research                  # prueba cientos de variantes con validación fuera de muestra
 """
 import argparse
 import time
@@ -54,6 +56,62 @@ def cmd_backtest(cfg, a):
           f"  ({'DATOS SINTÉTICOS: no sirven para decidir' if a.synthetic else 'datos reales'})\n")
     print(pd.DataFrame(cols).to_string())
     print("\nRendimientos pasados no garantizan rendimientos futuros.")
+
+
+def cmd_research(cfg, a):
+    from daytrade import research as rs
+    data = {}
+    for sym in a.symbols.split(","):
+        cache = ROOT / "data" / "cache" / f"{sym.replace('/', '')}_1h_{a.days}d.csv"
+        if cache.exists() and not a.refresh:
+            h1 = pd.read_csv(cache, index_col=0, parse_dates=True)
+        else:
+            print(f"Bajando {a.days} días de velas de 1 hora de {sym}...", flush=True)
+            h1 = fetch_history(sym, "1h", a.days)
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            h1.to_csv(cache)
+        data[(sym, "1h")] = h1
+        data[(sym, "4h")] = rs.resample(h1, "4h")
+    first = next(iter(data.values()))
+    split = first.index[int(len(first) * 2 / 3)]
+    print(f"\nEntrenamiento: {first.index[0]:%Y-%m-%d} a {split:%Y-%m-%d} | "
+          f"Prueba: {split:%Y-%m-%d} a {first.index[-1]:%Y-%m-%d}\n", flush=True)
+    res = rs.research(cfg, data)
+    out = ROOT / "research_resultados.csv"
+    res.to_csv(out, index=False)
+
+    cols = ["simbolo", "tf", "estrategia", "ent_rend_%", "ent_pf", "ent_ops",
+            "prueba_rend_%", "prueba_pf", "prueba_ops", "prueba_byh_%", "prueba_usd_dia", "prueba_caida_%"]
+    print("\nLa mejor de cada grupo SEGÚN ENTRENAMIENTO, y cómo le fue después en la prueba:")
+    best = (res[res.ent_ops >= rs.MIN_TRADES_TRAIN].sort_values("ent_pf", ascending=False)
+            .groupby(["simbolo", "tf", "estrategia"]).head(1).sort_values(["simbolo", "tf", "estrategia"]))
+    print(best[cols].to_string(index=False))
+    print("\n" + rs.verdict(res))
+    cand = res[res.candidata].sort_values("prueba_pf", ascending=False)
+    if len(cand):
+        print("\nCandidatas (para probar en modo práctica, NO con plata real todavía):")
+        param_cols = [c for c in res.columns if not c.startswith(("ent_", "prueba_")) and c != "candidata"]
+        print(cand.head(10)[param_cols + ["prueba_rend_%", "prueba_pf", "prueba_ops", "prueba_usd_dia"]].to_string(index=False))
+    else:
+        print("\nNo apareció ninguna combinación que gane de forma confiable en los dos períodos.")
+    print(f"\nTodos los resultados quedaron en {out.name} (se abre con Excel).")
+
+
+def cmd_analizar(cfg, a):
+    from daytrade.analysis import analyze
+    ex = PaperExchange(0, 0)
+    for sym in a.symbols.split(","):
+        for tf in a.timeframes.split(","):
+            try:
+                df = ex.candles(sym, tf, 1000)
+            except Exception as e:
+                print(f"{sym} {tf}: error bajando datos: {e}")
+                continue
+            r = analyze(df, cfg["strategy"], cfg["params"])
+            print(f"\n=== {sym}  velas de {tf}  ({df.index[-1]:%Y-%m-%d %H:%M} UTC) ===")
+            for k, v in r.items():
+                print(f"  {k.replace('_', ' '):16s} {v}")
+    print("\nEsto es una lectura técnica automática, no una recomendación de inversión.")
 
 
 def make_exchange(cfg):
@@ -150,10 +208,17 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
     b = sub.add_parser("backtest")
     b.add_argument("--days", type=int, default=365)
-    b.add_argument("--strategy", default="ambas", choices=["ambas", "reversion", "breakout"])
+    b.add_argument("--strategy", default="ambas", choices=["ambas", "reversion", "breakout", "momentum"])
     b.add_argument("--synthetic", action="store_true")
     b.add_argument("--refresh", action="store_true")
     b.add_argument("--trades", action="store_true", help="guardar cada operación en un CSV")
+    rs = sub.add_parser("research", help="buscar estrategias con validación fuera de muestra")
+    rs.add_argument("--days", type=int, default=1095)
+    rs.add_argument("--symbols", default="BTC/USDT,ETH/USDT,SOL/USDT")
+    rs.add_argument("--refresh", action="store_true")
+    an = sub.add_parser("analizar", help="qué ve el bot en el mercado ahora y si operaría")
+    an.add_argument("--symbols", default="BTC/USDT,ETH/USDT,SOL/USDT")
+    an.add_argument("--timeframes", default="1h,4h")
     r = sub.add_parser("run")
     r.add_argument("--once", action="store_true")
     sub.add_parser("check", help="probar la conexión con Binance")
@@ -162,7 +227,8 @@ def main():
     a = ap.parse_args()
     load_env()
     cfg = load(a.config)
-    {"backtest": cmd_backtest, "run": cmd_run, "report": cmd_report, "check": cmd_check}[a.cmd](cfg, a)
+    {"backtest": cmd_backtest, "run": cmd_run, "report": cmd_report, "check": cmd_check,
+     "research": cmd_research, "analizar": cmd_analizar}[a.cmd](cfg, a)
 
 
 if __name__ == "__main__":

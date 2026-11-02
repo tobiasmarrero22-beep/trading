@@ -50,7 +50,9 @@ class BTResult:
         return out
 
 
-def run(df: pd.DataFrame, cfg: dict) -> BTResult:
+def run(df: pd.DataFrame, cfg: dict, start_at: pd.Timestamp | None = None) -> BTResult:
+    """Si se pasa `start_at`, las velas anteriores solo sirven para calentar los indicadores:
+    no se opera antes de esa fecha y los resultados se miden desde ahí."""
     p, risk, costs = cfg["params"], cfg["risk"], cfg["costs"]
     fee, slip, strat = costs["fee_pct"], costs["slippage_pct"], cfg["strategy"]
     df = add_indicators(df, p)
@@ -75,7 +77,10 @@ def run(df: pd.DataFrame, cfg: dict) -> BTResult:
                        "usd": pos["cost"], "pnl": pnl, "fees": pos["fee_in"] + f, "motivo": reason})
         pos = None
 
+    first = 0 if start_at is None else int(idx.searchsorted(start_at))
     for i, r in enumerate(rows):
+        if i < first:
+            continue
         day = idx[i].strftime("%Y-%m-%d")
         mark = cash + (pos["qty"] * r["open"] if pos else 0.0)
         guard.roll(day, mark)
@@ -124,6 +129,7 @@ def run(df: pd.DataFrame, cfg: dict) -> BTResult:
         close_pos(len(rows) - 1, rows[-1]["close"], "fin del backtest")
         eq[-1] = cash
 
+    idx = idx[first:]
     equity = pd.Series(eq, idx)
     tdf = pd.DataFrame(trades, columns=["entrada", "salida", "precio_entrada", "precio_salida", "usd", "pnl", "fees", "motivo"])
     # Ganancia/pérdida por día (incluye días sin operaciones)
@@ -131,7 +137,7 @@ def run(df: pd.DataFrame, cfg: dict) -> BTResult:
     if len(tdf):
         by_day = tdf.groupby(tdf.salida.dt.strftime("%Y-%m-%d")).pnl.sum()
         days.loc[by_day.index] = by_day.values
-    bh = df["close"].iloc[-1] / df["close"].iloc[0] - 1
+    bh = df["close"].iloc[-1] / df["close"].iloc[first] - 1
     return BTResult(tdf, equity, days, float(cfg["initial_usd"]), bh)
 
 

@@ -14,6 +14,7 @@ initial_usd: 200         # solo para paper_local y backtest
 
 # Estrategia: "reversion" (comprar caídas dentro de una tendencia alcista)
 #             "breakout"  (comprar cuando rompe el máximo reciente)
+#             "momentum"  (comprar cuando la media rápida cruza por encima de la lenta)
 strategy: reversion
 params:
   ema_trend: 200         # solo opera si el precio está por encima de esta media
@@ -21,10 +22,13 @@ params:
   rsi_entry: 30          # reversion: compra si el RSI baja de esto
   rsi_exit: 55           # reversion: vende si el RSI sube de esto
   breakout_bars: 20      # breakout: compra si supera el máximo de las últimas N velas
+  ema_fast: 20           # momentum: media rápida
+  ema_slow: 50           # momentum: media lenta
   atr_period: 14
   stop_atr: 1.5          # stop-loss = entrada - 1,5 × ATR
   take_profit_atr: 2.5   # toma de ganancia = entrada + 2,5 × ATR
   max_hold_bars: 32      # vende sí o sí después de N velas (32 × 15 min = 8 h)
+  max_vol_ratio: 1.8     # no entra si la volatilidad es más de 1,8 veces la habitual
 
 risk:
   risk_per_trade_pct: 0.01     # en cada operación se arriesga como máximo el 1 % de la cuenta
