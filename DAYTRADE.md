@@ -75,7 +75,8 @@ Sirve para comprobar que las órdenes funcionan con el exchange real.
 1. Entrá a [testnet.binance.vision](https://testnet.binance.vision), iniciá sesión con GitHub y generá
    una clave HMAC.
 2. Copiá `.env.example` a `.env` y pegá `BINANCE_API_KEY` y `BINANCE_API_SECRET`.
-3. En `daytrade.yaml`, poné `mode: binance_testnet` y corré `python daytrade.py run`.
+3. En `daytrade.yaml`, poné `mode: binance_testnet`.
+4. Corré `python daytrade.py check` para confirmar la conexión y después `python daytrade.py run`.
 
 Los precios de la testnet a veces no se parecen a los reales (tiene poco volumen), así que para medir
 la rentabilidad sirve más el paso 2.
@@ -88,6 +89,7 @@ la rentabilidad sirve más el paso 2.
    **nunca actives los retiros**. Si podés, restringila a la IP de tu compu.
 3. En `.env`, poné las claves reales y `DAYTRADE_LIVE_CONFIRM=SI`.
 4. En `daytrade.yaml`, poné `mode: binance_live` e `initial_usd` con lo que querés que use el bot.
+5. Corré `python daytrade.py check`: tiene que decir "Retiros deshabilitados". Recién ahí, `python daytrade.py run`.
 
 ## Importante: el bot tiene que estar prendido
 

@@ -5,6 +5,7 @@
     python daytrade.py run                       # opera en el modo de daytrade.yaml (Ctrl+C para frenar)
     python daytrade.py run --once                # una sola pasada (para cron)
     python daytrade.py report                    # ganancias y pérdidas por día, según el registro
+    python daytrade.py check                     # prueba la conexión y los permisos de la clave
 """
 import argparse
 import time
@@ -85,6 +86,42 @@ def cmd_run(cfg, a):
     print(f"Capital {eng.capital:.2f} USD | posición abierta: {'sí' if pos else 'no'} | hoy: {eng.guard.pnl:+.2f} USD")
 
 
+def cmd_check(cfg, a):
+    """Prueba la conexión y los permisos de la clave, sin operar."""
+    if cfg["mode"] == "paper_local":
+        print("El modo es paper_local: no usa claves. Cambiá mode a binance_testnet o binance_live en daytrade.yaml.")
+        return
+    try:
+        ex = CcxtExchange(testnet=cfg["mode"] == "binance_testnet")
+    except Exception as e:
+        print(f"No se pudo conectar: {e}")
+        return
+    print(f"Conectado a Binance ({cfg['mode']}).")
+    try:
+        bal = ex.client.fetch_balance()
+        quote, base = cfg["symbol"].split("/")[1], cfg["symbol"].split("/")[0]
+        print(f"Saldo disponible: {bal['free'].get(quote, 0):.2f} {quote} | {bal['free'].get(base, 0):.6f} {base}")
+        print(f"El bot va a usar como máximo {cfg['initial_usd']} {quote} (initial_usd en daytrade.yaml).")
+    except Exception as e:
+        print(f"Error leyendo el saldo (¿la clave tiene permiso de lectura?): {e}")
+    if cfg["mode"] == "binance_live":
+        try:
+            r = ex.client.sapi_get_account_apirestrictions()
+            print(f"Trading al contado habilitado: {'sí' if r.get('enableSpotAndMarginTrading') else 'NO'}")
+            if r.get("enableWithdrawals"):
+                print("PELIGRO: esta clave tiene los RETIROS habilitados. Desactivalos en Binance antes de seguir.")
+            else:
+                print("Retiros deshabilitados: bien.")
+            if not r.get("ipRestrict"):
+                print("Recomendación: restringí la clave a la IP de tu compu.")
+        except Exception as e:
+            print(f"No se pudieron leer los permisos de la clave: {e}")
+    try:
+        print(f"Precio actual de {cfg['symbol']}: {ex.price(cfg['symbol']):.2f}")
+    except Exception as e:
+        print(f"Error leyendo el precio: {e}")
+
+
 def cmd_report(cfg, a):
     path = ROOT / "logs" / "daytrade_trades.csv"
     if not path.exists():
@@ -119,12 +156,13 @@ def main():
     b.add_argument("--trades", action="store_true", help="guardar cada operación en un CSV")
     r = sub.add_parser("run")
     r.add_argument("--once", action="store_true")
+    sub.add_parser("check", help="probar la conexión con Binance")
     rp = sub.add_parser("report")
     rp.add_argument("--mode", default=None)
     a = ap.parse_args()
     load_env()
     cfg = load(a.config)
-    {"backtest": cmd_backtest, "run": cmd_run, "report": cmd_report}[a.cmd](cfg, a)
+    {"backtest": cmd_backtest, "run": cmd_run, "report": cmd_report, "check": cmd_check}[a.cmd](cfg, a)
 
 
 if __name__ == "__main__":
